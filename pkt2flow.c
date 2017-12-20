@@ -110,8 +110,6 @@ static void parseargs(int argc, char *argv[])
 		exit(1);
 	}
 	else {
-		printf(" '%s'\n", readfile);
-
 		char *ptr = readfile;
 		while(*ptr != '\0') {
 			if (*ptr == '.' || *ptr == '\\' || *ptr == '/')
@@ -120,7 +118,6 @@ static void parseargs(int argc, char *argv[])
 				break;
 		}
 		outputdir_suffix = ptr;
-		printf("outputdir_suffix: '%s'\n", outputdir_suffix);
 	}
 }
 
