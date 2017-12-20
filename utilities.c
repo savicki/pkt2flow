@@ -39,7 +39,14 @@
 #include <sys/socket.h>
 #include "pkt2flow.h"
 
-char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
+static const char *status_str[] = {
+	[STS_UNSET] = "UNSET",
+	[STS_TCP_SYN] = "TCP_SYN",
+	[STS_TCP_NOSYN] = "TCP_NOSYN",
+	[STS_UDP] = "UDP"
+};
+
+char *new_file_name(struct af_6tuple af_6tuple, enum pkt_dump_file_status status, unsigned long timestamp)
 {
 	char *fname;
 	char src_ip_str[INET6_ADDRSTRLEN];
@@ -59,13 +66,15 @@ char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp)
 
 	switch (af_6tuple.is_vlan) {
 	case 0:
-		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu.pcap",
+		ret = asprintf(&fname, "%s_%"PRIu16"___%s_%"PRIu16"__%s_%lu.pcap",
 		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
+		       status_str[status],
 		       timestamp);
 		break;
 	case 1:
-		ret = asprintf(&fname, "%s_%"PRIu16"_%s_%"PRIu16"_%lu_vlan.pcap",
+		ret = asprintf(&fname, "%s_%"PRIu16"___%s_%"PRIu16"__%s_%lu_vlan.pcap",
 		       src_ip_str, af_6tuple.port1, dst_ip_str, af_6tuple.port2,
+		       status_str[status],
 		       timestamp);
 		break;
 	}

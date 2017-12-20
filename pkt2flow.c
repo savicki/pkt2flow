@@ -54,7 +54,8 @@
 static uint32_t dump_allowed;
 static char *readfile = NULL;
 //char *interface = NULL;
-static char *outputdir = "pkt2flow.out";
+static char *outputdir = "SPLIT";
+static char *outputdir_suffix = NULL;
 static pcap_t *inputp = NULL;
 struct ip_pair *pairs[HASH_TBL_SIZE];
 
@@ -108,6 +109,19 @@ static void parseargs(int argc, char *argv[])
 		usage(argv[0]);
 		exit(1);
 	}
+	else {
+		printf(" '%s'\n", readfile);
+
+		char *ptr = readfile;
+		while(*ptr != '\0') {
+			if (*ptr == '.' || *ptr == '\\' || *ptr == '/')
+				ptr++;
+			else
+				break;
+		}
+		outputdir_suffix = ptr;
+		printf("outputdir_suffix: '%s'\n", outputdir_suffix);
+	}
 }
 
 static void open_trace_file(void)
@@ -133,12 +147,19 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	char *outputpath;
 
 	switch (pdf->status) {
+#ifdef TCP_FILES_MERGE
+	case STS_TCP_SYN:
+	case STS_TCP_NOSYN:
+		type_folder = "tcp";
+		break;
+#else
 	case STS_TCP_SYN:
 		type_folder = "tcp_syn";
 		break;
 	case STS_TCP_NOSYN:
 		type_folder = "tcp_nosyn";
 		break;
+#endif
 	case STS_UDP:
 		type_folder = "udp";
 		break;
@@ -147,7 +168,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 		break;
 	}
 
-	ret = asprintf(&outputpath, "%s/%s", outputdir, type_folder);
+	ret = asprintf(&outputpath, "%s__%s/%s", outputdir, outputdir_suffix, type_folder);
 	if (ret < 0)
 		return NULL;
 
@@ -177,7 +198,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	free(cwd);
 	free(outputpath);
 
-	ret = asprintf(&outputpath, "%s/%s/%s", outputdir, type_folder,
+	ret = asprintf(&outputpath, "%s__%s/%s/%s", outputdir, outputdir_suffix, type_folder,
 		       pdf->file_name);
 	if (ret < 0)
 		return NULL;
@@ -375,8 +396,10 @@ static void process_trace(void)
 	u_char *pkt = NULL;
 	char *fname = NULL;
 	struct af_6tuple af_6tuple;
+	unsigned long pkt_count = 0, session_count = 0, files_count = 0;
 
 	while ((pkt = (u_char *)pcap_next(inputp, &hdr)) != NULL) {
+		pkt_count++;
 		syn_detected = pcap_handle_ethernet(&af_6tuple, &hdr, pkt);
 		if (syn_detected < 0)
 			continue;
@@ -407,6 +430,7 @@ static void process_trace(void)
 				continue;
 			}
 			pair = register_ip_pair(af_6tuple);
+			session_count++;
 			switch (af_6tuple.protocol) {
 			case IPPROTO_TCP:
 				if (syn_detected)
@@ -426,15 +450,17 @@ static void process_trace(void)
 		// Fill the ip_pair with information of the current flow
 		if (pair->pdf.pkts == 0) {
 			// A new flow item reated with empty dump file object
-			fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+			fname = new_file_name(af_6tuple, pair->pdf.status, hdr.ts.tv_sec);
+			files_count++;
+			printf("new session: %s\n", fname);
 			pair->pdf.file_name = fname;
 			pair->pdf.start_time = hdr.ts.tv_sec;
 		} else {
-			if (hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
+			if (FLOW_TIMEOUT && hdr.ts.tv_sec - pair->pdf.start_time >= FLOW_TIMEOUT) {
 				// Rest the pair to start a new flow with the same 6-tuple, but with
 				// the different name and timestamp
 				reset_pdf(&(pair->pdf));
-				fname = new_file_name(af_6tuple, hdr.ts.tv_sec);
+				fname = new_file_name(af_6tuple, pair->pdf.status, hdr.ts.tv_sec);
 				pair->pdf.file_name = fname;
 				pair->pdf.start_time = hdr.ts.tv_sec;
 
@@ -457,6 +483,7 @@ static void process_trace(void)
 
 		// Dump the packet to file and close the file
 		fname = resemble_file_path(&(pair->pdf));
+
 		FILE *f = fopen(fname, "ab");
 		if (!f) {
 			fprintf(stderr, "Failed to open output file '%s'\n", fname);
@@ -479,6 +506,8 @@ skip_dump_write:
 		free(fname);
 		pair->pdf.pkts++;
 	}
+
+	printf("pkt_count: %lu, session_count: %lu, files_count: %lu\n", pkt_count, session_count, files_count);
 }
 
 

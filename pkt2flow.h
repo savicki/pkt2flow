@@ -39,10 +39,11 @@
 #define __SOURCE_VERSION__              "1.2"
 #define __AUTHOR__                      "X. Chen (chenxm35@gmail.com)"
 #define __GLOBAL_NAME__                 "pkt2flow"
-#define FLOW_TIMEOUT                    1800    // seconds
+#define FLOW_TIMEOUT                    0    // seconds
 #define HASH_MULTIPLIER                 37
 #define HASH_TBL_SIZE                   48611
-
+#define TCP_FILES_MERGE
+ 
 #define BIT(bitnr) (1ULL << (bitnr))
 #define isset_bits(x, bitmask) ({ typeof(bitmask) _bitmask = (bitmask); \
 				  (_bitmask & (x)) == _bitmask; })
@@ -101,7 +102,7 @@ extern struct ip_pair *pairs[];
 /*
  * Generate a new file name for flow with 4-tuple and timestamp
  */
-char *new_file_name(struct af_6tuple af_6tuple, unsigned long timestamp);
+char *new_file_name(struct af_6tuple af_6tuple, enum pkt_dump_file_status status, unsigned long timestamp);
 
 /* flow_db.c */
 
