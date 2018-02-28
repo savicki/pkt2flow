@@ -78,7 +78,7 @@ static void usage(char *progname)
 static void parseargs(int argc, char *argv[])
 {
 	int opt;
-	const char *optstr = "uvxo:h";
+	const char *optstr = "uvxto:h";
 	while ((opt = getopt(argc, argv, optstr)) != -1) {
 		switch (opt) {
 		case 'h':
@@ -95,6 +95,9 @@ static void parseargs(int argc, char *argv[])
 			break;
 		case 'x':
 			dump_allowed |= DUMP_OTHER_ALLOWED;
+			break;
+		case 't':
+			dump_allowed |= DUMP_TCP_ALLOWED;
 			break;
 		default:
 			usage(argv [0]);
@@ -403,7 +406,9 @@ static void process_trace(void)
 
 		switch (af_6tuple.protocol) {
 		case IPPROTO_TCP:
-			/* always accept tcp */
+			if (!isset_bits(dump_allowed, DUMP_TCP_ALLOWED))
+				// Omit the TCP packets
+				continue;
 			break;
 		case IPPROTO_UDP:
 			if (!isset_bits(dump_allowed, DUMP_UDP_ALLOWED))
