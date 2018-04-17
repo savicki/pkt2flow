@@ -55,7 +55,7 @@ static uint32_t dump_allowed;
 static char *readfile = NULL;
 //char *interface = NULL;
 static char *outputdir = "SPLIT";
-static char *outputdir_suffix = NULL;
+static char *filename = NULL;
 static pcap_t *inputp = NULL;
 struct ip_pair *pairs[HASH_TBL_SIZE];
 
@@ -68,9 +68,10 @@ static void usage(char *progname)
 	fprintf(stderr, "Usage: %s [-huvx] [-o outdir] pcapfile\n\n", progname);
 	fprintf(stderr, "Options:\n");
 	fprintf(stderr, "	-h	print this help and exit\n");
-	fprintf(stderr, "	-u	also dump (U)DP flows\n");
+	fprintf(stderr, "	-u	also dump (U)DP flows\n");	
 	fprintf(stderr, "	-v	also dump the in(v)alid TCP flows without the SYN option\n");
 	fprintf(stderr, "	-x	also dump non-UDP/non-TCP IP flows\n");
+	fprintf(stderr, "	-t	also dump (T)CP flows\n");
 	fprintf(stderr, "	-o	(o)utput directory\n");
 }
 
@@ -113,14 +114,21 @@ static void parseargs(int argc, char *argv[])
 		exit(1);
 	}
 	else {
-		char *ptr = readfile;
-		while(*ptr != '\0') {
-			if (*ptr == '.' || *ptr == '\\' || *ptr == '/')
+		const char *st_ptr = readfile;
+		char *ptr = readfile + strlen(readfile);
+
+		while(ptr != st_ptr) {
+
+			if (*ptr == '\\' || *ptr == '/'){
 				ptr++;
-			else
 				break;
+			} else {
+				ptr--;
+			}
 		}
-		outputdir_suffix = ptr;
+		filename = ptr;
+
+		fprintf(stderr, "filename: '%s'\n", filename);
 	}
 }
 
@@ -168,7 +176,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 		break;
 	}
 
-	ret = asprintf(&outputpath, "%s__%s/%s", outputdir, outputdir_suffix, type_folder);
+	ret = asprintf(&outputpath, "%s__%s/%s", outputdir, filename, type_folder);
 	if (ret < 0)
 		return NULL;
 
@@ -198,7 +206,7 @@ static char *resemble_file_path(struct pkt_dump_file *pdf)
 	free(cwd);
 	free(outputpath);
 
-	ret = asprintf(&outputpath, "%s__%s/%s/%s", outputdir, outputdir_suffix, type_folder,
+	ret = asprintf(&outputpath, "%s__%s/%s/%s", outputdir, filename, type_folder,
 		       pdf->file_name);
 	if (ret < 0)
 		return NULL;
